@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "title": "Parameters",
+  "required": [
+    "resource_url",
+    "api_version",
+    "endpoint",
+    "query",
+    "incremental"
+  ],
+  "properties": {
+    "resource_url": {
+      "type": "string",
+      "title": "Resource URL",
+      "description": "URL to the CRM system located in the Dynamics 365 cloud. Usually in format <a href='https://<organization>.crm.dynamics.com'>https://&ltorganization&gt.crm.dynamics.com</a>.",
+      "propertyOrder": 100
+    },
+    "api_version": {
+      "type": "string",
+      "title": "API Version",
+      "propertyOrder": 200,
+      "description": "The API version, which will be used to query the data. For a list of available versions, please, refer to <a href='https://docs.microsoft.com/en-us/dynamics365/customerengagement/on-premises/developer/webapi/web-api-versions'>Microsoft's Web API documentation</a>."
+    },
+    "endpoint": {
+      "type": "string",
+      "title": "Endpoint",
+      "propertyOrder": 300,
+      "description": "The entity, which will be queried agains. For a list of available entities, please, refer to <a href='https://docs.microsoft.com/en-us/previous-versions/dynamicscrm-2016/developers-guide/mt608066(v=crm.8)'>entity documentation</a>."
+    },
+    "query": {
+      "type": "string",
+      "title": "Query (advanced)",
+      "propertyOrder": 400,
+      "description": "A Microsoft Web API query, which will be sent along with the request. Please, refer to <a href='https://docs.microsoft.com/en-us/powerapps/developer/common-data-service/webapi/query-data-web-api'>this article</a> explaining how to use the querying language.",
+      "format": "textarea",
+      "options": {
+        "input_height": "100px"
+      }
+    },
+    "incremental": {
+      "type": "boolean",
+      "default": true,
+      "title": "Incremental Load Enabled",
+      "propertyOrder": 450
+    }
+  }
+}
