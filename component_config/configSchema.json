@@ -11,7 +11,7 @@
     "organization_url": {
       "type": "string",
       "title": "Organization URL",
-      "description": "URL to the CRM system located in the Dynamics 365 cloud. Usually in format <a href='https://<organization>.crm.dynamics.com'>https://&ltorganization&gt.crm.dynamics.com</a>.",
+      "description": "URL to the CRM system located in the Dynamics 365 cloud. Usually in format <a href='https://<organization>.crm.dynamics.com' target='_blank'>https://&ltorganization&gt.crm.dynamics.com</a>.",
       "propertyOrder": 100,
       "minLength": 20
     },
@@ -19,14 +19,14 @@
       "type": "string",
       "title": "API Version",
       "propertyOrder": 200,
-      "description": "The API version, which will be used to query the data. For a list of available versions, please, refer to <a href='https://docs.microsoft.com/en-us/dynamics365/customerengagement/on-premises/developer/webapi/web-api-versions'>Microsoft's Web API documentation</a>.",
+      "description": "The API version, which will be used to query the data. For a list of available versions, please, refer to <a href='https://docs.microsoft.com/en-us/dynamics365/customerengagement/on-premises/developer/webapi/web-api-versions' target='_blank'>Microsoft's Web API documentation</a>.",
       "minLength": 4
     },
     "operation": {
       "type": "string",
       "title": "Operation",
       "propertyOrder": 300,
-      "description": "The API operation to be performed with the data, Check the documentation for more information.",
+      "description": "The API operation to be performed with the data. Check the documentation for more information.",
       "enum": [
         "delete",
         "create_and_update",

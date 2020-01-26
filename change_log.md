@@ -1,3 +1,7 @@
+**0.1.1**
+Fixed public links in documentation.
+MINOR: Tweaks to configuration schema to open links in new tab.
+
 **0.1.0**
 Documentation added.
 Tweaked configuration schema.
