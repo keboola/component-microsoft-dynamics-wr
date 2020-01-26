@@ -17,7 +17,7 @@ Each operation requires a set of columns to be included with each table.
 
 For `delete` operation, which deletes records from target entities, only column `id` is required, which contains unique identificators of records to be deleted. IDs of particular records can be found in the URL of said record in the UI version of Microsoft Dynamics 365 or using the accompanying extractor component for Dynamics 365.
 
-![record_id](https://bitbucket.org/kds_consulting_team/kds-team.wr-microsoft-dynamics/src/master/docs/images/record_id.png)
+![record_id](https://bitbucket.org/kds_consulting_team/kds-team.wr-microsoft-dynamics/raw/master/docs/images/record_id.png)
 
 ##### Upsert operation
 
@@ -35,7 +35,7 @@ All tables for this operation must have the same fields as in `upsert` operation
 
 The URL of Dynamics 365 instance, where all API calls will be made. The URL can be discovered using [Global Discovery Service](https://docs.microsoft.com/en-us/powerapps/developer/common-data-service/webapi/discover-url-organization-web-api) or from the URL of web instance:
 
-![organization_url](https://bitbucket.org/kds_consulting_team/kds-team.wr-microsoft-dynamics/src/master/docs/images/organization_url.png)
+![organization_url](https://bitbucket.org/kds_consulting_team/kds-team.wr-microsoft-dynamics/raw/master/docs/images/organization_url.png)
 
 #### API Version (`api_version`)
 
