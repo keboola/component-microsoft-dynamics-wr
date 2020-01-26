@@ -2,23 +2,25 @@
   "type": "object",
   "title": "Parameters",
   "required": [
-    "resource_url",
+    "organization_url",
     "api_version",
     "operation",
     "continue_on_error"
   ],
   "properties": {
-    "resource_url": {
+    "organization_url": {
       "type": "string",
-      "title": "Resource URL",
+      "title": "Organization URL",
       "description": "URL to the CRM system located in the Dynamics 365 cloud. Usually in format <a href='https://<organization>.crm.dynamics.com'>https://&ltorganization&gt.crm.dynamics.com</a>.",
-      "propertyOrder": 100
+      "propertyOrder": 100,
+      "minLength": 20
     },
     "api_version": {
       "type": "string",
       "title": "API Version",
       "propertyOrder": 200,
-      "description": "The API version, which will be used to query the data. For a list of available versions, please, refer to <a href='https://docs.microsoft.com/en-us/dynamics365/customerengagement/on-premises/developer/webapi/web-api-versions'>Microsoft's Web API documentation</a>."
+      "description": "The API version, which will be used to query the data. For a list of available versions, please, refer to <a href='https://docs.microsoft.com/en-us/dynamics365/customerengagement/on-premises/developer/webapi/web-api-versions'>Microsoft's Web API documentation</a>.",
+      "minLength": 4
     },
     "operation": {
       "type": "string",
@@ -41,7 +43,7 @@
     },
     "continue_on_error": {
       "type": "boolean",
-      "title": "Continue on error",
+      "title": "Continue on Error",
       "propertyOrder": 400,
       "description": "Marks, if the writer should continue writing data, if an error with any record occured.",
       "default": true

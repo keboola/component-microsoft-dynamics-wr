@@ -10,12 +10,12 @@ from dynamics.result import DynamicsResultsWriter
 
 APP_VERSION = '0.0.1'
 
-KEY_RESOURCE = 'resource_url'
+KEY_ORGANIZATIONURL = 'organization_url'
 KEY_API_VERSION = 'api_version'
 KEY_OPERATION = 'operation'
 KEY_CONTINUEONERROR = 'continue_on_error'
 
-MANDATORY_PARAMS = [KEY_RESOURCE, KEY_API_VERSION, KEY_OPERATION]
+MANDATORY_PARAMS = [KEY_ORGANIZATIONURL, KEY_API_VERSION, KEY_OPERATION]
 
 AUTH_APPKEY = 'appKey'
 AUTH_APPSECRET = '#appSecret'
@@ -43,9 +43,9 @@ class DynamicsComponent(KBCEnvHandler):
         self.parRefreshToken = authData[AUTH_APPDATA_REFRESHTOKEN]
 
         self.parApiVersion = self.cfg_params[KEY_API_VERSION]
-        self.parResourceUrl = self.cfg_params[KEY_RESOURCE]
+        self.parResourceUrl = self.cfg_params[KEY_ORGANIZATIONURL]
         self.parOperation = self.cfg_params[KEY_OPERATION]
-        self.parContinueOnError = self.cfg_params.get(KEY_CONTINUEONERROR)
+        self.parContinueOnError = self.cfg_params.get(KEY_CONTINUEONERROR, True)
 
         self.client = DynamicsClient(self.parClientId, self.parClientSecret,
                                      self.parResourceUrl, self.parRefreshToken, self.parApiVersion)
@@ -212,16 +212,17 @@ class DynamicsComponent(KBCEnvHandler):
                     recordId = row['id'].strip()
                     recordData = None
 
-                    if recordId == '' and self.parOperation == 'upsert':
+                    if recordId == '' and self.parOperation != 'create_and_update':
                         if self.parContinueOnError is False:
-                            logging.error("For upsert operation, all records must have valid IDs provided.")
+                            logging.error("For upsert and delete operations, all records must have valid IDs provided.")
                             sys.exit(1)
 
                         self.writer.writerow({
                             **row,
                             **{
                                 'operation_status': "MISSING_ID_ERROR",
-                                'operation_response': "For upsert operation, an ID must to be provided for all records."
+                                'operation_response': "For upsert and delete operations, an ID must to be provided" +
+                                                      " for all records."
                             }
                         }, endpoint, self.parOperation)
                         errorCounter += 1
