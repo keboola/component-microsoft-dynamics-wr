@@ -8,7 +8,7 @@ from kbc.env_handler import KBCEnvHandler
 from dynamics.client import DynamicsClient
 from dynamics.result import DynamicsResultsWriter
 
-APP_VERSION = '0.1.1'
+APP_VERSION = '0.1.2'
 
 KEY_ORGANIZATIONURL = 'organization_url'
 KEY_API_VERSION = 'api_version'
@@ -96,7 +96,7 @@ class DynamicsComponent(KBCEnvHandler):
         unsupportedEndpoints = []
 
         for endpoint in self.varInputTables:
-            if endpoint not in self.client.varApiObjects:
+            if endpoint.lower() not in self.client.varApiObjects:
 
                 unsupportedEndpoints += [endpoint]
 
