@@ -117,10 +117,10 @@ class DynamicsClient(HttpClientBase):
             sys.exit(1)
 
         scMeta = reqMeta.status_code
+        jsMeta = reqMeta.json()
         if scMeta == 200:
 
             logging.debug("Obtained logical definitions of entities.")
-            jsMeta = reqMeta.json()
             self.varApiObjects = [e['EntitySetName'].lower() for e in jsMeta['value'] if e['EntitySetName'] is not None]
 
         else:
