@@ -1,160 +1,122 @@
-# import json
 import logging
 import os
+
 import requests
-import sys
-from urllib.parse import urljoin
-from kbc.client_base import HttpClientBase
+from keboola.component import UserException
+from keboola.http_client import HttpClient
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
-BASE_URL_REFRESH = 'https://login.microsoftonline.com/common/oauth2/token'
+class DynamicsClient(HttpClient):
+    MSFT_LOGIN_URL = 'https://login.microsoftonline.com/common/oauth2/token'
+    MAX_RETRIES = 7
+    PAGE_SIZE = 2000
 
+    def __init__(self, client_id, client_secret, resource_url, refresh_token, api_version,
+                 max_page_size: int = PAGE_SIZE):
 
-class DynamicsClientRefresh(HttpClientBase):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.resource_url = os.path.join(resource_url, '')
+        self._refresh_token = refresh_token
+        self._max_page_size = max_page_size
+        self.supported_endpoints = []
+        _accessToken = self.refresh_token()
+        super().__init__(base_url=os.path.join(resource_url, 'api/data/', api_version),
+                         max_retries=self.MAX_RETRIES, auth_header={
+            'Authorization': f'Bearer {_accessToken}'
+        })
 
-    def __init__(self):
+    def refresh_token(self):
 
-        super().__init__(base_url=BASE_URL_REFRESH)
-
-    def refreshAccessToken(self, clientId, clientSecret, resourceUrl, refreshToken):
-
-        logging.debug("Refreshing access token.")
-
-        headersRefresh = {
+        headers_refresh = {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Accept': 'application/json'
         }
 
-        bodyRefresh = {
-            'client_id': clientId,
+        body_refresh = {
+            'client_id': self.client_id,
             'grant_type': 'refresh_token',
-            'client_secret': clientSecret,
-            'resource': resourceUrl,
-            'refresh_token': refreshToken
+            'client_secret': self.client_secret,
+            'resource': self.resource_url,
+            'refresh_token': self._refresh_token
         }
 
-        reqRefresh = self.post_raw(url=self.base_url, headers=headersRefresh, data=bodyRefresh)
-        scRefresh, jsRefresh = reqRefresh.status_code, reqRefresh.json()
+        resp = requests.post(self.MSFT_LOGIN_URL, headers=headers_refresh, data=body_refresh)
+        code, response_json = resp.status_code, resp.json()
 
-        if scRefresh == 200:
-
-            logging.debug("Token refreshed successfully.")
-            return jsRefresh['access_token']
+        if code == 200:
+            logging.debug("Access token refreshed successfully.")
+            return response_json['access_token']
 
         else:
+            raise UserException(f"Could not refresh access token. Received {code} - {response_json}.")
 
-            logging.error(f"Could not refresh access token. Received {scRefresh} - {jsRefresh}.")
-            sys.exit(1)
+    def __response_hook(self, res, *args, **kwargs):
 
+        if res.status_code == 401:
+            token = self._refresh_token()
+            self.update_auth_header({"Authorization": f'Bearer {token}'})
 
-class DynamicsClient(HttpClientBase):
+            res.request.headers['Authorization'] = f'Bearer {token}'
+            s = requests.Session()
+            return self.requests_retry_session(session=s).send(res.request)
 
-    def __init__(self, clientId, clientSecret, resourceUrl, refreshToken, apiVersion):
+    def requests_retry_session(self, session=None):
 
-        self.parClientId = clientId
-        self.parClientSecret = clientSecret
+        session = session or requests.Session()
+        retry = Retry(
+            total=self.max_retries,
+            read=self.max_retries,
+            connect=self.max_retries,
+            backoff_factor=self.backoff_factor,
+            status_forcelist=self.status_forcelist,
+            allowed_methods=('GET', 'POST', 'PATCH', 'UPDATE', 'DELETE')
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        # append response hook
+        session.hooks['response'].append(self.__response_hook)
+        return session
 
-        self.parAccessToken = self.refreshToken(self.parClientId, self.parClientSecret,
-                                                os.path.join(resourceUrl, ''), refreshToken)
+    def get_entity_metadata(self) -> None:
 
-        _defHeader = {
-            'Authorization': f'Bearer {self.parAccessToken}',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        }
+        url = os.path.join(self.base_url, 'EntityDefinitions')
 
-        self.parResourceUrl = urljoin(resourceUrl, f'api/data/{apiVersion}/')
-
-        super().__init__(base_url=self.parResourceUrl, default_http_header=_defHeader,
-                         backoff_factor=0.1, max_retries=7)
-        self.getEntityMetadata()
-
-    def patch_raw(self, *args, **kwargs):
-
-        s = requests.Session()
-        headers = kwargs.pop('headers', {})
-        headers.update(self._auth_header)
-        s.headers.update(headers)
-        s.auth = self._auth
-
-        r = self.requests_retry_session(session=s).request('PATCH', *args, **kwargs)
-        return r
-
-    def delete_raw(self, *args, **kwargs):
-
-        s = requests.Session()
-        headers = kwargs.pop('headers', {})
-        headers.update(self._auth_header)
-        s.headers.update(headers)
-        s.auth = self._auth
-
-        r = self.requests_retry_session(session=s).request('DELETE', *args, **kwargs)
-        return r
-
-    def refreshToken(self, clientId, clientSecret, resourceUrl, refreshToken):
-
-        return DynamicsClientRefresh().refreshAccessToken(clientId, clientSecret, resourceUrl, refreshToken)
-
-    def getEntityMetadata(self):
-
-        urlMeta = os.path.join(self.base_url, 'EntityDefinitions')
-        paramsMeta = {
+        params_meta = {
             '$select': 'EntitySetName'
         }
 
+        response = self.get_raw(url, is_absolute_path=True, params=params_meta)
         try:
-            reqMeta = self.get_raw(url=urlMeta, params=paramsMeta)
+            response.raise_for_status()
+            json_data = response.json()
+            self.supported_endpoints = [entity['EntitySetName'].lower()
+                                        for entity in json_data['value'] if entity['EntitySetName'] is not None]
 
-        except requests.exceptions.ConnectionError as e:
-            logging.error(' '.join(["Could not obtain logical object definitions. Please, check the",
-                                    f"organization URL or authorization. \n{e}"]))
-            sys.exit(1)
+        except requests.HTTPError as e:
+            raise e
 
-        except requests.exceptions.RetryError as e:
-            logging.error(' '.join(["Could not obtain logical object definitions. Please, check the",
-                                    "the supported API version in correct format (v9.0, v9.1, etc.) is specified.",
-                                    f"\n{e}"]))
-            sys.exit(1)
+    def create_record(self, endpoint, data):
+        url_create = os.path.join(self.base_url, endpoint)
+        data_create = data
+        return self.post_raw(endpoint_path=url_create, json=data_create)
 
-        scMeta = reqMeta.status_code
-        jsMeta = reqMeta.json()
-        if scMeta == 200:
-
-            logging.debug("Obtained logical definitions of entities.")
-            self.varApiObjects = [e['EntitySetName'].lower() for e in jsMeta['value'] if e['EntitySetName'] is not None]
-
-        else:
-
-            logging.error("Could not obtain entity metadata for resource.")
-            logging.error(f"Received: {scMeta} - {jsMeta}.")
-            sys.exit(1)
-
-    def createRecord(self, endpoint, data):
-
-        urlCreate = urljoin(self.base_url, endpoint)
-        dataCreate = data
-
-        return self.post_raw(url=urlCreate, json=dataCreate)
-
-    def updateRecord(self, endpoint, recordId, data):
-
-        urlUpdate = urljoin(self.base_url, f'{endpoint}({recordId})')
-        headersUpdate = {
+    def update_record(self, endpoint, record_id, data):
+        url_update = os.path.join(self.base_url, f'{endpoint}({record_id})')
+        headers_update = {
             'If-Match': '*'
         }
-        dataUpdate = data
+        data_update = data
+        return self.patch_raw(endpoint_path=url_update, json=data_update, headers=headers_update, is_absolute_path=True)
 
-        return self.patch_raw(url=urlUpdate, json=dataUpdate, headers=headersUpdate)
+    def upsert_record(self, endpoint, record_id, data):
+        url_update = os.path.join(self.base_url, f'{endpoint}({record_id})')
+        data_update = data
+        return self.patch_raw(endpoint_path=url_update, json=data_update)
 
-    def upsertRecord(self, endpoint, recordId, data):
-
-        urlUpdate = urljoin(self.base_url, f'{endpoint}({recordId})')
-        dataUpdate = data
-
-        return self.patch_raw(url=urlUpdate, json=dataUpdate)
-
-    def deleteRecord(self, endpoint, recordId):
-
-        urlDelete = urljoin(self.base_url, f'{endpoint}({recordId})')
-
-        return self.delete_raw(urlDelete)
+    def delete_record(self, endpoint, record_id):
+        url_delete = os.path.join(self.base_url, f'{endpoint}({record_id})')
+        return self.delete_raw(url_delete)

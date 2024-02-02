@@ -20,7 +20,8 @@
       "title": "API Version",
       "propertyOrder": 200,
       "description": "The API version, which will be used to query the data. For a list of available versions, please, refer to <a href='https://docs.microsoft.com/en-us/dynamics365/customerengagement/on-premises/developer/webapi/web-api-versions' target='_blank'>Microsoft's Web API documentation</a>.",
-      "minLength": 4
+      "minLength": 4,
+      "default": "v9.2"
     },
     "operation": {
       "type": "string",
