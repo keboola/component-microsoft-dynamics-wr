@@ -1,1 +1,4 @@
 keboola.utils==1.1.0
+keboola.component==1.4.3
+keboola.http-client
+requests

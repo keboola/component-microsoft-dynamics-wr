@@ -4,13 +4,13 @@ import os
 import requests
 import sys
 from urllib.parse import urljoin
-from kbc.client_base import HttpClientBase
+from keboola.http_client import HttpClient
 
 
 BASE_URL_REFRESH = 'https://login.microsoftonline.com/common/oauth2/token'
 
 
-class DynamicsClientRefresh(HttpClientBase):
+class DynamicsClientRefresh(HttpClient):
 
     def __init__(self):
 
@@ -33,7 +33,7 @@ class DynamicsClientRefresh(HttpClientBase):
             'refresh_token': refreshToken
         }
 
-        reqRefresh = self.post_raw(url=self.base_url, headers=headersRefresh, data=bodyRefresh)
+        reqRefresh = self.post_raw(headers=headersRefresh, data=bodyRefresh)
         scRefresh, jsRefresh = reqRefresh.status_code, reqRefresh.json()
 
         if scRefresh == 200:
@@ -47,7 +47,7 @@ class DynamicsClientRefresh(HttpClientBase):
             sys.exit(1)
 
 
-class DynamicsClient(HttpClientBase):
+class DynamicsClient(HttpClient):
 
     def __init__(self, clientId, clientSecret, resourceUrl, refreshToken, apiVersion):
 
@@ -63,10 +63,14 @@ class DynamicsClient(HttpClientBase):
             'Content-Type': 'application/json'
         }
 
+        logging.info("init")
+
         self.parResourceUrl = urljoin(resourceUrl, f'api/data/{apiVersion}/')
 
         super().__init__(base_url=self.parResourceUrl, default_http_header=_defHeader,
                          backoff_factor=0.1, max_retries=7)
+        logging.info("init-ok")
+
         self.getEntityMetadata()
 
     def patch_raw(self, *args, **kwargs):
@@ -77,7 +81,7 @@ class DynamicsClient(HttpClientBase):
         s.headers.update(headers)
         s.auth = self._auth
 
-        r = self.requests_retry_session(session=s).request('PATCH', *args, **kwargs)
+        r = self._requests_retry_session(session=s).request('PATCH', *args, **kwargs)
         return r
 
     def delete_raw(self, *args, **kwargs):
@@ -88,7 +92,7 @@ class DynamicsClient(HttpClientBase):
         s.headers.update(headers)
         s.auth = self._auth
 
-        r = self.requests_retry_session(session=s).request('DELETE', *args, **kwargs)
+        r = self._requests_retry_session(session=s).request('DELETE', *args, **kwargs)
         return r
 
     def refreshToken(self, clientId, clientSecret, resourceUrl, refreshToken):
@@ -97,13 +101,13 @@ class DynamicsClient(HttpClientBase):
 
     def getEntityMetadata(self):
 
-        urlMeta = os.path.join(self.base_url, 'EntityDefinitions')
+        # urlMeta = os.path.join(self.base_url, 'EntityDefinitions')
         paramsMeta = {
             '$select': 'EntitySetName'
         }
 
         try:
-            reqMeta = self.get_raw(url=urlMeta, params=paramsMeta)
+            reqMeta = self.get_raw(params=paramsMeta)
 
         except requests.exceptions.ConnectionError as e:
             logging.error(' '.join(["Could not obtain logical object definitions. Please, check the",
@@ -117,16 +121,15 @@ class DynamicsClient(HttpClientBase):
             sys.exit(1)
 
         scMeta = reqMeta.status_code
-        jsMeta = reqMeta.json()
         if scMeta == 200:
-
+            jsMeta = reqMeta.json()
             logging.debug("Obtained logical definitions of entities.")
-            self.varApiObjects = [e['EntitySetName'].lower() for e in jsMeta['value'] if e['EntitySetName'] is not None]
+            self.varApiObjects = [entity['name'].lower() for entity in jsMeta['value'] if entity['kind'] == 'EntitySet']
 
         else:
 
             logging.error("Could not obtain entity metadata for resource.")
-            logging.error(f"Received: {scMeta} - {jsMeta}.")
+            logging.error(f"Received: {scMeta} - {reqMeta.reason}.")
             sys.exit(1)
 
     def createRecord(self, endpoint, data):
@@ -134,7 +137,7 @@ class DynamicsClient(HttpClientBase):
         urlCreate = urljoin(self.base_url, endpoint)
         dataCreate = data
 
-        return self.post_raw(url=urlCreate, json=dataCreate)
+        return self.post_raw(endpoint_path=urlCreate, json=dataCreate)
 
     def updateRecord(self, endpoint, recordId, data):
 

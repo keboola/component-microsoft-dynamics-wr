@@ -4,7 +4,8 @@ import logging
 import json
 import os
 import sys
-from kbc.env_handler import KBCEnvHandler
+from keboola.component import ComponentBase
+from keboola.component.exceptions import UserException
 from dynamics.client import DynamicsClient
 from dynamics.result import DynamicsResultsWriter
 
@@ -18,8 +19,8 @@ KEY_CONTINUEONERROR = 'continue_on_error'
 MANDATORY_PARAMS = [KEY_ORGANIZATIONURL, KEY_API_VERSION, KEY_OPERATION]
 
 AUTH_APPKEY = 'appKey'
-AUTH_APPSECRET = '#appSecret'
-AUTH_APPDATA = '#data'
+AUTH_APPSECRET = 'appSecret'
+AUTH_APPDATA = 'data'
 AUTH_APPDATA_REFRESHTOKEN = 'refresh_token'
 
 SUPPORTED_OPERATIONS = ['delete', 'create_and_update', 'upsert']
@@ -27,19 +28,23 @@ MANDATORYFIELDS_UPSERT = ['id', 'data']
 MANDATORYFIELDS_DELETE = ['id']
 
 
-class DynamicsComponent(KBCEnvHandler):
+class Component(ComponentBase):
 
     def __init__(self):
 
-        super().__init__(mandatory_params=MANDATORY_PARAMS, log_level='DEBUG')
-        logging.info("Running component version %s..." % APP_VERSION)
-        self.validate_config(MANDATORY_PARAMS)
+        super().__init__()
+        logging.info("Running component version %s..." + APP_VERSION)
+        self.validate_configuration_parameters(MANDATORY_PARAMS)
 
-        auth = self.get_authorization()
+        self.cfg_params = self.configuration.parameters
+
+        auth = self.configuration.oauth_credentials
+
         self.parClientId = auth[AUTH_APPKEY]
         self.parClientSecret = auth[AUTH_APPSECRET]
 
-        authData = json.loads(auth[AUTH_APPDATA])
+        authData = auth[AUTH_APPDATA]
+
         self.parRefreshToken = authData[AUTH_APPDATA_REFRESHTOKEN]
 
         self.parApiVersion = self.cfg_params[KEY_API_VERSION]
@@ -179,6 +184,12 @@ class DynamicsComponent(KBCEnvHandler):
                 'operation_response': rspReq
             })
 
+        elif scReq == 401:
+            return (False, idReq, {
+                'operation_status': f"REQUEST_ERROR - {scReq}",
+                'operation_response': requestObject.reason
+            })
+
         elif scReq == 400:
             rspReq = requestObject.json()['error']['message'].split('\r\n')[0]
             rspReq = ' '.join(["Attribute you're trying to update most likely does not exist.",
@@ -199,6 +210,8 @@ class DynamicsComponent(KBCEnvHandler):
     def run(self):
 
         for endpoint, path in self.varInputTables.items():
+
+            logging.info("Start")
 
             logging.info(f"Writing data to {endpoint}.")
             errorCounter = 0
@@ -257,8 +270,12 @@ class DynamicsComponent(KBCEnvHandler):
 
                     reqRecord = self.makeRequest(recordOperation, endpoint, recordId, recordData)
                     if reqRecord.status_code == 401:
-                        self.client.refreshToken()
+                        self.client.refreshToken(self.parClientId, self.parClientSecret, self.parResourceUrl,
+                                                 self.parRefreshToken)
                         reqRecord = self.makeRequest(recordOperation, endpoint, recordId, recordData)
+
+                    logging.info("OPERATION: " + recordOperation)
+                    logging.info("RESPONSE: " + str(reqRecord))
 
                     success, requestId, requestStatusDict = self.parseResponse(recordOperation, reqRecord)
 
@@ -271,6 +288,24 @@ class DynamicsComponent(KBCEnvHandler):
                         errorCounter += int(not success)
                         self.writer.writerow({**row, **requestStatusDict}, endpoint, recordOperation, requestId)
 
+            logging.info("end")
+
             if errorCounter != 0:
-                logging.warn(''.join([f"There were {errorCounter} errors during {self.parOperation} operation on",
+                logging.warning(''.join([f"There were {errorCounter} errors during {self.parOperation} operation on",
                                       f" {endpoint} endpoint."]))
+
+
+"""
+        Main entrypoint
+"""
+if __name__ == "__main__":
+    try:
+        comp = Component()
+        # this triggers the run method by default and is controlled by the configuration.action parameter
+        comp.execute_action()
+    except UserException as exc:
+        logging.exception(exc)
+        exit(1)
+    except Exception as exc:
+        logging.exception(exc)
+        exit(1)
