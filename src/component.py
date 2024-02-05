@@ -292,7 +292,7 @@ class Component(ComponentBase):
 
             if errorCounter != 0:
                 logging.warning(''.join([f"There were {errorCounter} errors during {self.parOperation} operation on",
-                                      f" {endpoint} endpoint."]))
+                                f" {endpoint} endpoint."]))
 
 
 """
