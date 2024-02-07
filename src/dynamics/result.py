@@ -11,15 +11,15 @@ PK_RESULTS = ['request_id']
 
 class DynamicsResultsWriter:
 
-    def __init__(self, dataOutPath):
+    def __init__(self, data_out_path):
 
-        self.parDataOutPath = dataOutPath
+        self.parDataOutPath = data_out_path
         self.parTablePath = os.path.join(self.parDataOutPath, 'results.csv')
 
-        self._createManifest()
-        self._createWriter()
+        self._create_manifest()
+        self._create_writer()
 
-    def _createManifest(self):
+    def _create_manifest(self):
 
         _template = {
             'incremental': True,
@@ -30,27 +30,27 @@ class DynamicsResultsWriter:
         with open(self.parTablePath + '.manifest', 'w') as manFile:
             json.dump(_template, manFile)
 
-    def _createWriter(self):
+    def _create_writer(self):
 
         self.writer = csv.DictWriter(open(self.parTablePath, 'w'), fieldnames=FIELDS_RESULTS, restval='',
                                      extrasaction='ignore', quotechar='\"', quoting=csv.QUOTE_ALL)
 
-    def writerow(self, rowDict, endpoint, operation, requestId=None):
+    def writerow(self, row_dict, endpoint, operation, request_id=None):
 
-        writeTime = str(int(time.time() * 1000))
+        write_time = str(int(time.time() * 1000))
 
-        if requestId is None:
-            encodeString = '|'.join([writeTime, endpoint, operation, str(rowDict)])
-            requestId = hashlib.md5(encodeString.encode()).hexdigest()
+        if request_id is None:
+            encode_string = '|'.join([write_time, endpoint, operation, str(row_dict)])
+            request_id = hashlib.md5(encode_string.encode()).hexdigest()
 
-        writeDict = {
-            **rowDict,
+        write_dict = {
+            **row_dict,
             **{
-                'request_id': requestId,
+                'request_id': request_id,
                 'endpoint': endpoint,
                 'operation': operation,
-                'timestamp': writeTime
+                'timestamp': write_time
             }
         }
 
-        self.writer.writerow(writeDict)
+        self.writer.writerow(write_dict)
