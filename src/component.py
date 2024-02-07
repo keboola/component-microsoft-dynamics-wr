@@ -2,7 +2,6 @@ import csv
 import logging
 import json
 import os
-import sys
 from keboola.component import ComponentBase
 from keboola.component.exceptions import UserException
 from configuration import Configuration
@@ -25,6 +24,90 @@ class Component(ComponentBase):
         self._client: DynamicsClient = None
         self.in_tables = self.get_input_tables_definitions()
         self.writer = DynamicsResultsWriter(self.tables_out_path)
+
+    def run(self):
+
+        self._init_configuration()
+        self.check_input_tables()
+
+        self.init_client()
+        self._client.get_entity_metadata()
+
+        self.check_input_endpoints()
+
+        for table in self.in_tables:
+
+            endpoint = table.name.replace('.csv', '')
+
+            logging.info(f"Writing data to {endpoint}.")
+            error_counter = 0
+
+            with open(table.full_path) as inTable:
+
+                table_reader = csv.DictReader(inTable)
+
+                for row in table_reader:
+
+                    record_id = row['id'].strip()
+                    record_data = None
+
+                    if record_id == '' and self.cfg.operation != 'create_and_update':
+                        if self.cfg.continue_on_error is False:
+                            raise UserException("For upsert and delete operations, all records must have valid IDs "
+                                                "provided.")
+
+                        self.writer.writerow({
+                            **row,
+                            **{
+                                'operation_status': "MISSING_ID_ERROR",
+                                'operation_response': "For upsert and delete operations, an ID must to be provided" +
+                                                      " for all records."
+                            }
+                        }, endpoint, self.cfg.operation)
+                        error_counter += 1
+                        continue
+
+                    if self.cfg.operation == 'create_and_update':
+                        if record_id == '':
+                            record_operation = 'create'
+                        else:
+                            record_operation = 'update'
+
+                    else:
+                        record_operation = self.cfg.operation
+
+                    if record_operation != 'delete':
+                        record_data = self.parse_json_from_string(row['data'])
+
+                        if record_data is None:
+                            if self.cfg.continue_on_error is False:
+                                raise UserException(''.join([f"Invalid data provided. {row['data']} is not a valid",
+                                                             " JSON or Python Dictionary representation."]))
+
+                            else:
+                                self.writer.writerow({**row, **{
+                                    'operation_status': "DATA_ERROR",
+                                    'operation_message': "Data provided is not a valid JSON or Python Dict object."
+                                }}, endpoint, record_operation)
+
+                                error_counter += 1
+                                continue
+
+                    req_record = self.make_request(record_operation, endpoint, record_id, record_data)
+
+                    success, request_id, request_status_dict = self.parse_response(record_operation, req_record)
+
+                    if success is False and self.cfg.continue_on_error is False:
+                        raise UserException(f"There was an error during {record_operation} operation"
+                                            f"on {endpoint} endpoint. Received: {request_status_dict}.")
+
+                    else:
+                        error_counter += int(not success)
+                        self.writer.writerow({**row, **request_status_dict}, endpoint, record_operation, request_id)
+
+            if error_counter != 0:
+                logging.warning(''.join([f"There were {error_counter} errors during {self.cfg.operation} operation on",
+                                         f" {endpoint} endpoint."]))
 
     def _init_configuration(self) -> None:
         try:
@@ -51,8 +134,7 @@ class Component(ComponentBase):
     def check_input_tables(self):
 
         if len(self.in_tables) == 0:
-            logging.error("No input tables specified. At least one input table is required.")
-            sys.exit(1)
+            raise UserException("No input tables specified. At least one input table is required.")
 
         if self.cfg.operation == 'delete':
             _mandFields = MANDATORYFIELDS_DELETE
@@ -74,8 +156,7 @@ class Component(ComponentBase):
                     tables_with_missing_fields += [table.name]
 
         if len(tables_with_missing_fields) != 0:
-            logging.error(f"Mandatory fields {mand_fields_set} missing in tables {tables_with_missing_fields}.")
-            sys.exit(1)
+            raise UserException(f"Mandatory fields {mand_fields_set} missing in tables {tables_with_missing_fields}.")
 
     def check_input_endpoints(self):
 
@@ -84,17 +165,15 @@ class Component(ComponentBase):
         for table in self.in_tables:
             endpoint = table.name.replace('.csv', '').lower()
             if endpoint not in self._client.supported_endpoints:
-
                 unsupported_endpoints += [endpoint]
 
         if len(unsupported_endpoints) > 0:
             url_endpoints = os.path.join(self.cfg.organization_url,
                                          f'api/data/{self.cfg.api_version}/EntityDefinitions?%24select=EntitySetName')
-            logging.error(' '.join(["Some endpoints are not available in the Dynamics CRM API instance.",
-                                    f"Unsupported endpoints: {unsupported_endpoints}. For the list of available",
-                                    f"endpoints, please visit: {url_endpoints},",
-                                    "or refer to your Dynamics CRM settings."]))
-            sys.exit(1)
+            raise UserException(' '.join(["Some endpoints are not available in the Dynamics CRM API instance.",
+                                          f"Unsupported endpoints: {unsupported_endpoints}. For the list of available",
+                                          f"endpoints, please visit: {url_endpoints},",
+                                          "or refer to your Dynamics CRM settings."]))
 
     @staticmethod
     def get_request_id(request):
@@ -181,92 +260,6 @@ class Component(ComponentBase):
                 'operation_status': f"UNKNOWN_ERROR - {status_code}",
                 'operation_response': request_object.json()
             })
-
-    def run(self):
-
-        self._init_configuration()
-        self.check_input_tables()
-
-        self.init_client()
-        self._client.get_entity_metadata()
-
-        self.check_input_endpoints()
-
-        for table in self.in_tables:
-
-            endpoint = table.name.replace('.csv', '')
-
-            logging.info(f"Writing data to {endpoint}.")
-            error_counter = 0
-
-            with open(table.full_path) as inTable:
-
-                table_reader = csv.DictReader(inTable)
-
-                for row in table_reader:
-
-                    record_id = row['id'].strip()
-                    record_data = None
-
-                    if record_id == '' and self.cfg.operation != 'create_and_update':
-                        if self.cfg.continue_on_error is False:
-                            logging.error("For upsert and delete operations, all records must have valid IDs provided.")
-                            sys.exit(1)
-
-                        self.writer.writerow({
-                            **row,
-                            **{
-                                'operation_status': "MISSING_ID_ERROR",
-                                'operation_response': "For upsert and delete operations, an ID must to be provided" +
-                                                      " for all records."
-                            }
-                        }, endpoint, self.cfg.operation)
-                        error_counter += 1
-                        continue
-
-                    if self.cfg.operation == 'create_and_update':
-                        if record_id == '':
-                            record_operation = 'create'
-                        else:
-                            record_operation = 'update'
-
-                    else:
-                        record_operation = self.cfg.operation
-
-                    if record_operation != 'delete':
-                        record_data = self.parse_json_from_string(row['data'])
-
-                        if record_data is None:
-                            if self.cfg.continue_on_error is False:
-                                logging.error(''.join([f"Invalid data provided. {row['data']} is not a valid",
-                                                       " JSON or Python Dictionary representation."]))
-                                sys.exit(1)
-
-                            else:
-                                self.writer.writerow({**row, **{
-                                    'operation_status': "DATA_ERROR",
-                                    'operation_message': "Data provided is not a valid JSON or Python Dict object."
-                                }}, endpoint, record_operation)
-
-                                error_counter += 1
-                                continue
-
-                    req_record = self.make_request(record_operation, endpoint, record_id, record_data)
-
-                    success, request_id, request_status_dict = self.parse_response(record_operation, req_record)
-
-                    if success is False and self.cfg.continue_on_error is False:
-                        logging.error(f"There was an error during {record_operation} operation on {endpoint} endpoint.")
-                        logging.error(f"Received: {request_status_dict}.")
-                        sys.exit(1)
-
-                    else:
-                        error_counter += int(not success)
-                        self.writer.writerow({**row, **request_status_dict}, endpoint, record_operation, request_id)
-
-            if error_counter != 0:
-                logging.warning(''.join([f"There were {error_counter} errors during {self.cfg.operation} operation on",
-                                f" {endpoint} endpoint."]))
 
 
 """
