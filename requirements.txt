@@ -1,6 +1,7 @@
 keboola.utils==1.1.0
 keboola.component==1.4.3
 keboola.http-client
+kbcstorage==0.9.0
 requests==2.31.0
 dataconf~=2.3.0
-urllib3==2.2.0
+urllib3==1.26.18

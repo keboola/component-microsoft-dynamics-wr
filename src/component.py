@@ -7,6 +7,8 @@ from keboola.component.exceptions import UserException
 from configuration import Configuration
 from dynamics.client import DynamicsClient
 from dynamics.result import DynamicsResultsWriter
+from kbcstorage.tables import Tables
+
 
 APP_VERSION = '0.1.3'
 
@@ -164,8 +166,18 @@ class Component(ComponentBase):
 
         unsupported_endpoints = []
 
-        for table in self.in_tables:
-            endpoint = table.name.replace('.csv', '').lower()
+        endpoints = []
+
+        if self.in_tables:
+
+            for table in self.in_tables:
+                endpoint = table.name.replace('.csv', '').lower()
+                endpoints.append(endpoint)
+        else:
+            endpoints = [table[1].replace('.csv', '').lower() for table in self._get_storage_source()]
+
+        for endpoint in endpoints:
+
             if endpoint not in self._client.supported_endpoints:
                 unsupported_endpoints += [endpoint]
 
@@ -179,11 +191,19 @@ class Component(ComponentBase):
 
     def check_input_attributes(self):
 
-        for table in self.in_tables:
-            endpoint = table.name.replace('.csv', '').lower()
+        for table in self._get_storage_source():
+
+            tables = Tables(self._get_kbc_root_url(), self._get_storage_token())
+
+            tables.export_to_file(table_id=table[0], path_name=self.data_folder_path)
+
+            endpoint = table[1].replace(".csv", "").lower()
+
             supported_attributes = self._client.get_endpoint_attributes(endpoint)
 
-            with open(table.full_path) as inTable:
+            logging.info(f"Failed successfully: {endpoint}")
+
+            with open(os.path.join(self.data_folder_path, endpoint)) as inTable:
                 table_reader = csv.DictReader(inTable)
                 row_counter = 0
                 for row in table_reader:
@@ -191,7 +211,7 @@ class Component(ComponentBase):
                     record_id = row['id'].strip()
 
                     if record_id == '' and self.cfg.operation != 'create_and_update':
-                        raise UserException(f"In {table.name} on the line {row_counter} is missing ID."
+                        raise UserException(f"In {table[1]} on the line {row_counter} is missing ID."
                                             " For upsert and delete operations, all records must have valid IDs")
 
                     if self.cfg.operation == 'create_and_update':
@@ -209,7 +229,7 @@ class Component(ComponentBase):
                         missing = [item for item in record_keys if item not in supported_attributes]
 
                         if missing:
-                            raise UserException(f"In {table.name} on the line {row_counter} are"
+                            raise UserException(f"In {table[1]} on the line {row_counter} are"
                                                 f" unsupported attributes: {missing}")
 
     @staticmethod
@@ -298,10 +318,27 @@ class Component(ComponentBase):
                 'operation_response': request_object.json()
             })
 
-    @sync_action('validate_input_tables')
-    def validate_input_tables(self):
+    def _get_kbc_root_url(self) -> str:
+        return f'https://{self.environment_variables.stack_id}' if self.environment_variables.stack_id \
+            else "https://connection.keboola.com"
+
+    def _get_storage_token(self) -> str:
+        return self.configuration.parameters.get('#storage_token') or self.environment_variables.token
+
+    def _get_storage_source(self) -> list:
+        storage_config = self.configuration.config_data.get("storage")
+        if not storage_config.get("input", {}).get("tables"):
+            raise UserException("Input table must be specified.")
+        tables = [[table["source"], table["destination"]] for table in storage_config["input"]["tables"]]
+
+        if not tables:
+            raise UserException("No input tables specified. At least one input table is required.")
+
+        return tables
+
+    @sync_action('validate_input_data')
+    def validate_input_data(self):
         self._init_configuration()
-        self.check_input_tables()
         self.init_client()
         self._client.get_entity_metadata()
         self.check_input_endpoints()

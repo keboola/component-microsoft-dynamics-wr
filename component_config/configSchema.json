@@ -49,15 +49,15 @@
       "description": "Marks, if the writer should continue writing data, if an error with any record occured.",
       "default": true
     },
-    "validate_subject": {
+    "validate_data": {
       "type": "button",
       "format": "sync-action",
       "description": "Validate input tables, if contains allowed fields for the operation.",
       "propertyOrder": 500,
       "options": {
         "async": {
-          "label": "VALIDATE INPUT TABLES",
-          "action": "validate_input_tables"
+          "label": "VALIDATE INPUT DATA",
+          "action": "validate_input_data"
         }
       }
     }
