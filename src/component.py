@@ -2,7 +2,7 @@ import csv
 import logging
 import json
 import os
-from keboola.component import ComponentBase
+from keboola.component.base import ComponentBase
 from keboola.component.exceptions import UserException
 from configuration import Configuration
 from dynamics.client import DynamicsClient
@@ -34,6 +34,8 @@ class Component(ComponentBase):
         self._client.get_entity_metadata()
 
         self.check_input_endpoints()
+
+        self.check_input_attributes()
 
         for table in self.in_tables:
 
@@ -164,7 +166,7 @@ class Component(ComponentBase):
 
         for table in self.in_tables:
             endpoint = table.name.replace('.csv', '').lower()
-            if endpoint not in self._client.supported_endpoints:
+            if endpoint not in list(self._client.supported_endpoints.keys()):
                 unsupported_endpoints += [endpoint]
 
         if len(unsupported_endpoints) > 0:
@@ -174,6 +176,44 @@ class Component(ComponentBase):
                                           f"Unsupported endpoints: {unsupported_endpoints}. For the list of available",
                                           f"endpoints, please visit: {url_endpoints},",
                                           "or refer to your Dynamics CRM settings."]))
+
+    def check_input_attributes(self):
+
+        for table in self.in_tables:
+            table_name = table.name.replace('.csv', '').lower()
+            endpoint = self._client.supported_endpoints[table_name]
+            supported_attributes = self._client.get_endpoint_attributes(endpoint)
+
+            with open(table.full_path) as inTable:
+                table_reader = csv.DictReader(inTable)
+                row_counter = 0
+                for row in table_reader:
+                    row_counter += 1
+                    record_id = row['id'].strip()
+
+                    if record_id == '' and self.cfg.operation != 'create_and_update':
+                        raise UserException(f"In {table.name} on the line {row_counter} is missing ID."
+                                            " For upsert and delete operations, all records must have valid IDs")
+
+                    if self.cfg.operation == 'create_and_update':
+                        if record_id == '':
+                            record_operation = 'create'
+                        else:
+                            record_operation = 'update'
+
+                    else:
+                        record_operation = self.cfg.operation
+
+                    if record_operation != 'delete':
+                        record_data = self.parse_json_from_string(row['data'])
+                        record_keys = list(record_data.keys())
+                        missing = [item for item in record_keys if item not in supported_attributes]
+
+                        if missing:
+                            raise UserException(f"In {table.name} on the line {row_counter} are"
+                                                f" unsupported attributes: {missing}")
+
+        logging.info("All attributes in input tables are supported.")
 
     @staticmethod
     def get_request_id(request):
