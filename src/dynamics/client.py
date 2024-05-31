@@ -86,15 +86,33 @@ class DynamicsClient(HttpClient):
         url = os.path.join(self.base_url, 'EntityDefinitions')
 
         params_meta = {
-            '$select': 'EntitySetName'
+            '$select': 'EntitySetName,LogicalName'
         }
 
         response = self.get_raw(url, is_absolute_path=True, params=params_meta)
         try:
             response.raise_for_status()
             json_data = response.json()
-            self.supported_endpoints = [entity['EntitySetName'].lower()
-                                        for entity in json_data['value'] if entity['EntitySetName'] is not None]
+            self.supported_endpoints = {entity['EntitySetName'].lower(): entity['LogicalName'].lower()
+                                        for entity in json_data['value'] if entity['EntitySetName'] is not None}
+
+        except requests.HTTPError as e:
+            raise e
+
+    def get_endpoint_attributes(self, entity_name: str) -> list:
+
+        url = os.path.join(self.base_url, f'EntityDefinitions(LogicalName=\'{entity_name}\')/Attributes')
+
+        response = self.get_raw(url, is_absolute_path=True)
+
+        try:
+            response.raise_for_status()
+            json_data = response.json()
+
+            attributes = [attr.get('LogicalName') for attr in json_data.get('value')
+                          if attr.get('IsValidForCreate') or attr.get('IsValidForUpdate')]
+
+            return attributes
 
         except requests.HTTPError as e:
             raise e
