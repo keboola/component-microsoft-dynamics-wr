@@ -201,6 +201,8 @@ class Component(ComponentBase):
 
             supported_attributes = self._client.get_endpoint_attributes(endpoint)
 
+            logging.info(f"Supported attributes for {endpoint}: {supported_attributes}")
+
             with open(os.path.join(self.data_folder_path, endpoint)) as inTable:
                 table_reader = csv.DictReader(inTable)
                 row_counter = 0
