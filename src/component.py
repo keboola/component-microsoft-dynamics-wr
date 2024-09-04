@@ -184,6 +184,8 @@ class Component(ComponentBase):
             endpoint = self._client.supported_endpoints[table_name]
             supported_attributes = self._client.get_endpoint_attributes(endpoint)
 
+            logging.info(f"Supported attributes for {endpoint}: {supported_attributes}")
+
             with open(table.full_path) as inTable:
                 table_reader = csv.DictReader(inTable)
                 row_counter = 0
