@@ -212,8 +212,8 @@ class Component(ComponentBase):
                         missing = [item for item in record_keys if item not in supported_attributes]
 
                         if missing:
-                            raise UserException(f"In {table.name} on the line {row_counter} are"
-                                                f" unsupported attributes: {missing}")
+                            logging.warning(f"In {table.name} on the line {row_counter} are"
+                                            f" unsupported attributes: {missing}")
 
         logging.info("All attributes in input tables are supported.")
 
