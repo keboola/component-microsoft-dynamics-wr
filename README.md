@@ -16,10 +16,6 @@ The component needs to be authorized by a user with access to Dynamics 365. The 
 
 For local run of the writer, please refer to [correct configuration file specification](https://developers.keboola.com/extend/common-interface/oauth/#authorize).
 
-#### Refresh Token
-
-The refresh token is used to obtain a new access token. The refresh token is stored in the state file and is used for runs of the writer ROW! A problem with no valid refresh token can appear if new rows are added after the main OAuth refresh token expiration time.
-
 ### Input tables
 
 For each run, at least one input table needs to be specified. The name of the input table names marks the endpoint, to which the data will be loaded. For example, data from table `contacts.csv` will be written to endpoint `contacts`, data from `leads.csv` will be written to endpoint `leads`, etc. 
