@@ -208,12 +208,12 @@ class Component(ComponentBase):
 
                     if record_operation != 'delete':
                         record_data = self.parse_json_from_string(row['data'])
-                        record_keys = list(record_data.keys())
+                        record_keys = [key.replace("@odata.bind", "") for key in record_data.keys()]
                         missing = [item for item in record_keys if item not in supported_attributes]
 
                         if missing:
-                            logging.warning(f"In {table.name} on the line {row_counter} are"
-                                            f" unsupported attributes: {missing}")
+                            raise UserException(f"In {table.name} on the line {row_counter} are"
+                                                f" unsupported attributes: {missing}")
 
         logging.info("All attributes in input tables are supported.")
 

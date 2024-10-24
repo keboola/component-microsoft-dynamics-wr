@@ -128,9 +128,6 @@ class DynamicsClient(HttpClient):
             'If-Match': '*'
         }
         data_update = data
-
-        logging.debug(f"URL: {url_update}")
-        logging.debug(f"Data: {data_update}")
         return self.patch_raw(endpoint_path=url_update, json=data_update, headers=headers_update, is_absolute_path=True)
 
     def upsert_record(self, endpoint, record_id, data):
