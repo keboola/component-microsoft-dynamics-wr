@@ -184,6 +184,8 @@ class Component(ComponentBase):
             endpoint = self._client.supported_endpoints[table_name]
             supported_attributes = self._client.get_endpoint_attributes(endpoint)
 
+            logging.info(f"Supported attributes for {endpoint}: {supported_attributes}")
+
             with open(table.full_path) as inTable:
                 table_reader = csv.DictReader(inTable)
                 row_counter = 0
@@ -206,7 +208,7 @@ class Component(ComponentBase):
 
                     if record_operation != 'delete':
                         record_data = self.parse_json_from_string(row['data'])
-                        record_keys = list(record_data.keys())
+                        record_keys = [key.replace("@odata.bind", "") for key in record_data.keys()]
                         missing = [item for item in record_keys if item not in supported_attributes]
 
                         if missing:
