@@ -1,0 +1,20 @@
+[project]
+name = "component-microsoft-dynamics-wr"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = "~=3.13.0"
+dependencies = [
+    "dataconf~=2.3.0",
+    "freezegun>=1.5.5",
+    "keboola-component==1.4.3",
+    "keboola-http-client>=1.0.1",
+    "keboola-utils==1.1.0",
+    "mock>=5.2.0",
+    "requests==2.31.0",
+    "urllib3==2.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "flake8>=7.3.0",
+]
