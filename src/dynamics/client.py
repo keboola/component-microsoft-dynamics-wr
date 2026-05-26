@@ -117,6 +117,29 @@ class DynamicsClient(HttpClient):
         except requests.HTTPError as e:
             raise e
 
+    def get_endpoint_navigation_properties(self, entity_name: str) -> list:
+
+        url = os.path.join(
+            self.base_url,
+            f'EntityDefinitions(LogicalName=\'{entity_name}\')/ManyToOneRelationships'
+            f'?$select=ReferencingEntityNavigationPropertyName'
+        )
+
+        response = self.get_raw(url, is_absolute_path=True)
+
+        try:
+            response.raise_for_status()
+            json_data = response.json()
+
+            nav_properties = [rel.get('ReferencingEntityNavigationPropertyName')
+                              for rel in json_data.get('value', [])
+                              if rel.get('ReferencingEntityNavigationPropertyName')]
+
+            return nav_properties
+
+        except requests.HTTPError as e:
+            raise e
+
     def create_record(self, endpoint, data):
         url_create = os.path.join(self.base_url, endpoint)
         data_create = data
