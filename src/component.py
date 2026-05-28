@@ -8,7 +8,7 @@ from configuration import Configuration
 from dynamics.client import DynamicsClient
 from dynamics.result import DynamicsResultsWriter
 
-APP_VERSION = '0.1.3'
+APP_VERSION = '0.1.7'
 
 SUPPORTED_OPERATIONS = ['delete', 'create_and_update', 'upsert']
 MANDATORYFIELDS_UPSERT = ['id', 'data']

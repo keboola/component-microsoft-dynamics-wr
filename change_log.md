@@ -1,3 +1,8 @@
+**0.1.7**
+FIX: Support polymorphic (multi-table) lookup fields via `@odata.bind` navigation properties.
+Fields like `customerid_account@odata.bind` on the Incident entity are now validated against
+both regular entity attributes and single-valued navigation properties (ManyToOneRelationships).
+
 **0.1.1**
 Fixed public links in documentation.
 MINOR: Tweaks to configuration schema to open links in new tab.
