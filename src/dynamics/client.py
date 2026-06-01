@@ -122,10 +122,13 @@ class DynamicsClient(HttpClient):
         url = os.path.join(
             self.base_url,
             f'EntityDefinitions(LogicalName=\'{entity_name}\')/ManyToOneRelationships'
-            f'?$select=ReferencingEntityNavigationPropertyName'
         )
 
-        response = self.get_raw(url, is_absolute_path=True)
+        params = {
+            '$select': 'ReferencingEntityNavigationPropertyName'
+        }
+
+        response = self.get_raw(url, is_absolute_path=True, params=params)
 
         try:
             response.raise_for_status()
