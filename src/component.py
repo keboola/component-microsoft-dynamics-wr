@@ -8,7 +8,7 @@ from configuration import Configuration
 from dynamics.client import DynamicsClient
 from dynamics.result import DynamicsResultsWriter
 
-APP_VERSION = '0.1.3'
+APP_VERSION = '0.1.7'
 
 SUPPORTED_OPERATIONS = ['delete', 'create_and_update', 'upsert']
 MANDATORYFIELDS_UPSERT = ['id', 'data']
@@ -183,8 +183,10 @@ class Component(ComponentBase):
             table_name = table.name.replace('.csv', '').lower()
             endpoint = self._client.supported_endpoints[table_name]
             supported_attributes = self._client.get_endpoint_attributes(endpoint)
+            navigation_properties = self._client.get_endpoint_navigation_properties(endpoint)
 
             logging.info(f"Supported attributes for {endpoint}: {supported_attributes}")
+            logging.info(f"Supported navigation properties for {endpoint}: {navigation_properties}")
 
             with open(table.full_path) as inTable:
                 table_reader = csv.DictReader(inTable)
@@ -208,8 +210,16 @@ class Component(ComponentBase):
 
                     if record_operation != 'delete':
                         record_data = self.parse_json_from_string(row['data'])
-                        record_keys = [key.replace("@odata.bind", "") for key in record_data.keys()]
-                        missing = [item for item in record_keys if item not in supported_attributes]
+                        missing = []
+                        for key in record_data.keys():
+                            stripped_key = key.replace("@odata.bind", "")
+                            if "@odata.bind" in key:
+                                if stripped_key not in supported_attributes \
+                                        and stripped_key not in navigation_properties:
+                                    missing.append(stripped_key)
+                            else:
+                                if stripped_key not in supported_attributes:
+                                    missing.append(stripped_key)
 
                         if missing:
                             raise UserException(f"In {table.name} on the line {row_counter} are"
