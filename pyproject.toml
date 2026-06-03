@@ -1,0 +1,38 @@
+[project]
+name = "component-microsoft-dynamics-wr"
+version = "0.1.0"
+description = "Keboola Microsoft Dynamics Writer"
+requires-python = "~=3.13.0"
+dependencies = [
+    "dataconf~=2.3.0",
+    "keboola-component>=1.4.3",
+    "keboola-http-client>=1.0.1",
+    "keboola-utils>=1.1.0",
+    "requests>=2.31.0",
+    "urllib3>=2.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "ty",
+    "pre-commit",
+    "pytest",
+    "ruff>=0.15.15",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ty.environment]
+extra-paths = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+extend-select = [
+    "I",   # isort – import sorting
+    "UP",  # pyupgrade – modern Python syntax
+]

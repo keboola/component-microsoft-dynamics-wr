@@ -4,6 +4,9 @@ __pycache__/
 .idea
 .project
 .pydevproject
+*.egg-info/
+.venv/
+.DS_Store
 
 # kbc datafolder
-data/
+/data
