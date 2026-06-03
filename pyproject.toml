@@ -17,6 +17,7 @@ dev = [
     "ty",
     "pre-commit",
     "pytest",
+    "ruff>=0.15.15",
 ]
 
 [tool.pytest.ini_options]
