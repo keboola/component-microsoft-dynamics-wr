@@ -170,5 +170,104 @@ class TestCheckInputAttributes(unittest.TestCase):
         comp.check_input_attributes()  # must not raise
 
 
+class TestEntitySetNameDerivation(unittest.TestCase):
+    """Regression tests for CFTL-658.
+
+    keboola-component >=1.5 overrides ``TableDefinition.name`` with the Storage
+    table name from the manifest, which is unrelated to the Dynamics entity set.
+    The entity set must be derived from the on-disk filename (``full_path``), not
+    ``table.name``, otherwise every config whose Storage table name differs from
+    the entity set name fails endpoint validation.
+
+    These tests build a *real* ``TableDefinition`` via the installed
+    keboola-component library (no hand-set mock for ``name``) so they both
+    reproduce the library's behaviour and prove the fix against the real object.
+    """
+
+    STORAGE_NAME = "FINAL_REMIND_ME_PROD_ACCOUNT_GUID"
+
+    def _real_table(self, on_disk_filename, rows=None, sliced=False):
+        """Build a real TableDefinition whose Storage name differs from its filename.
+
+        Writes an on-disk table named ``on_disk_filename`` plus a manifest whose
+        ``name`` is the unrelated Storage table name, then lets the real library
+        construct the TableDefinition exactly as ``get_input_tables_definitions``
+        does.
+        """
+        from keboola.component.dao import TableDefinition
+
+        tmp_dir = tempfile.mkdtemp()
+        data_path = os.path.join(tmp_dir, on_disk_filename)
+
+        if sliced:
+            os.makedirs(data_path)
+            with open(os.path.join(data_path, "part-0.csv"), "w", newline="") as f:
+                self._write_rows(f, rows)
+        else:
+            with open(data_path, "w", newline="") as f:
+                self._write_rows(f, rows)
+
+        manifest_path = data_path + ".manifest"
+        with open(manifest_path, "w") as f:
+            json.dump({"id": f"in.c-bucket.{self.STORAGE_NAME}", "name": self.STORAGE_NAME}, f)
+
+        table = TableDefinition.build_from_manifest(manifest_path)
+        # Guard: confirm the library really does override name with the Storage
+        # name in the installed version — otherwise the test proves nothing.
+        self.assertEqual(table.name, self.STORAGE_NAME)
+        return table
+
+    @staticmethod
+    def _write_rows(f, rows):
+        writer = csv.DictWriter(f, fieldnames=["id", "data"])
+        writer.writeheader()
+        for row in rows or []:
+            writer.writerow({"id": row.get("id", "test-uuid"), "data": json.dumps(row["data"])})
+
+    def _component_for(self, table, supported_endpoints, supported_attrs=None, nav_properties=None):
+        mock_client = MagicMock()
+        mock_client.supported_endpoints = supported_endpoints
+        mock_client.get_endpoint_attributes.return_value = supported_attrs or []
+        mock_client.get_endpoint_navigation_properties.return_value = nav_properties or []
+
+        mock_cfg = MagicMock()
+        mock_cfg.operation = "upsert"
+
+        from component import Component
+
+        comp = Component.__new__(Component)
+        comp.in_tables = [table]
+        comp._client = mock_client
+        comp.cfg = mock_cfg
+        return comp
+
+    def test_entity_set_name_uses_filename_not_storage_name(self):
+        from component import Component
+
+        table = self._real_table("incidents.csv")
+        self.assertEqual(Component._entity_set_name(table), "incidents")
+
+    def test_entity_set_name_for_sliced_table_directory(self):
+        from component import Component
+
+        table = self._real_table("incidents", sliced=True)
+        self.assertEqual(Component._entity_set_name(table), "incidents")
+
+    def test_check_input_endpoints_resolves_filename_over_storage_name(self):
+        """The bug: endpoint validation rejected the Storage name. It must use the filename."""
+        table = self._real_table("incidents.csv")
+        comp = self._component_for(table, supported_endpoints={"incidents": "incident"})
+        comp.check_input_endpoints()  # must not raise
+
+    def test_check_input_attributes_resolves_filename_over_storage_name(self):
+        table = self._real_table("incidents.csv", rows=[{"id": "abc", "data": {"title": "Test"}}])
+        comp = self._component_for(
+            table,
+            supported_endpoints={"incidents": "incident"},
+            supported_attrs=["title"],
+        )
+        comp.check_input_attributes()  # must not raise
+
+
 if __name__ == "__main__":
     unittest.main()

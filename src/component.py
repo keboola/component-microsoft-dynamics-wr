@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 import os
+from pathlib import Path
 
 from keboola.component.base import ComponentBase
 from keboola.component.exceptions import UserException
@@ -39,7 +40,7 @@ class Component(ComponentBase):
         self.check_input_attributes()
 
         for table in self.in_tables:
-            endpoint = table.name.replace(".csv", "")
+            endpoint = self._entity_set_name(table)
 
             logging.info(f"Writing data to {endpoint}.")
             error_counter = 0
@@ -184,12 +185,25 @@ class Component(ComponentBase):
         if len(tables_with_missing_fields) != 0:
             raise UserException(f"Mandatory fields {mand_fields_set} missing in tables {tables_with_missing_fields}.")
 
+    @staticmethod
+    def _entity_set_name(table) -> str:
+        """Derive the Dynamics entity set name from the on-disk filename.
+
+        The entity set is encoded in the input table's file name (e.g.
+        ``incidents.csv`` -> ``incidents``). We read it from ``full_path``
+        rather than ``table.name`` because keboola-component >=1.5 overrides
+        ``TableDefinition.name`` with the Storage table name from the manifest,
+        which is unrelated to the Dynamics entity. ``Path.stem`` handles both a
+        plain CSV file and a sliced-table directory. See CFTL-658.
+        """
+        return Path(table.full_path).stem
+
     def check_input_endpoints(self):
 
         unsupported_endpoints = []
 
         for table in self.in_tables:
-            endpoint = table.name.replace(".csv", "").lower()
+            endpoint = self._entity_set_name(table).lower()
             if endpoint not in list(self._client.supported_endpoints.keys()):
                 unsupported_endpoints += [endpoint]
 
@@ -211,7 +225,7 @@ class Component(ComponentBase):
     def check_input_attributes(self):
 
         for table in self.in_tables:
-            table_name = table.name.replace(".csv", "").lower()
+            table_name = self._entity_set_name(table).lower()
             endpoint = self._client.supported_endpoints[table_name]
             supported_attributes = self._client.get_endpoint_attributes(endpoint)
             navigation_properties = self._client.get_endpoint_navigation_properties(endpoint)
