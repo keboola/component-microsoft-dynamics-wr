@@ -1,1 +1,1 @@
-Microsoft Dynamics is a line of enterprise resource planning and customer relationship management software applications.
+Writes data to Microsoft Dynamics 365 entities.
