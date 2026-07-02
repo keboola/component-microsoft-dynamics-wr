@@ -5,7 +5,7 @@ description = "Keboola Microsoft Dynamics Writer"
 requires-python = "~=3.13.0"
 dependencies = [
     "dataconf~=2.3.0",
-    "keboola-component>=1.4.3",
+    "keboola-component>=1.11.0",
     "keboola-http-client>=1.0.1",
     "keboola-utils>=1.1.0",
     "requests>=2.31.0",
