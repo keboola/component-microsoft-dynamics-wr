@@ -9,12 +9,22 @@ from urllib3.util.retry import Retry
 
 
 class DynamicsClient(HttpClient):
-    MSFT_LOGIN_URL = "https://login.microsoftonline.com/common/oauth2/token"
+    DEFAULT_AUTHORITY_URL = "https://login.microsoftonline.com/common"
+    # Azure AD v1 token endpoint, because refresh_token() sends the `resource` parameter.
+    TOKEN_ENDPOINT = "/oauth2/token"
+    MSFT_LOGIN_URL = DEFAULT_AUTHORITY_URL + TOKEN_ENDPOINT
     MAX_RETRIES = 7
     PAGE_SIZE = 2000
 
     def __init__(
-        self, client_id, client_secret, resource_url, refresh_token, api_version, max_page_size: int = PAGE_SIZE
+        self,
+        client_id,
+        client_secret,
+        resource_url,
+        refresh_token,
+        api_version,
+        max_page_size: int = PAGE_SIZE,
+        authority_url: str | None = None,
     ):
 
         self.client_id = client_id
@@ -23,12 +33,30 @@ class DynamicsClient(HttpClient):
         self._refresh_token = refresh_token
         self._max_page_size = max_page_size
         self.supported_endpoints = []
+        self.msft_login_url = self.build_token_url(authority_url)
         _accessToken = self.refresh_token()
         super().__init__(
             base_url=os.path.join(resource_url, "api/data/", api_version),
             max_retries=self.MAX_RETRIES,
             auth_header={"Authorization": f"Bearer {_accessToken}"},
         )
+
+    @classmethod
+    def build_token_url(cls, authority_url: str | None = None) -> str:
+        """Builds the Microsoft identity platform token endpoint.
+
+        authority_url is the optional per stack override
+        (image_parameters.microsoftAuthorityUrl), for example
+        https://login.microsoftonline.com/<tenant-id>. Microsoft rejects the shared
+        /common endpoint for single tenant app registrations (AADSTS50194), so a
+        stack with such a registration must call its own tenant instead.
+
+        When the override is not set, the default /common endpoint is used and the
+        behaviour is unchanged.
+        """
+        if not authority_url:
+            return cls.MSFT_LOGIN_URL
+        return authority_url.rstrip("/") + cls.TOKEN_ENDPOINT
 
     def refresh_token(self):
 
@@ -42,7 +70,7 @@ class DynamicsClient(HttpClient):
             "refresh_token": self._refresh_token,
         }
 
-        resp = requests.post(self.MSFT_LOGIN_URL, headers=headers_refresh, data=body_refresh)
+        resp = requests.post(self.msft_login_url, headers=headers_refresh, data=body_refresh)
         code, response_json = resp.status_code, resp.json()
 
         if code == 200:

@@ -17,6 +17,10 @@ SUPPORTED_OPERATIONS = ["delete", "create_and_update", "upsert"]
 MANDATORYFIELDS_UPSERT = ["id", "data"]
 MANDATORYFIELDS_DELETE = ["id"]
 
+# Optional per stack override of the Microsoft identity platform authority,
+# set as data.image_parameters.microsoftAuthorityUrl on the stack.
+KEY_IMAGE_AUTHORITY_URL = "microsoftAuthorityUrl"
+
 
 class Component(ComponentBase):
     def __init__(self):
@@ -155,8 +159,15 @@ class Component(ComponentBase):
 
         refresh_token = credentials.data["refresh_token"]
 
+        authority_url = self.configuration.image_parameters.get(KEY_IMAGE_AUTHORITY_URL)
+
         self._client = DynamicsClient(
-            credentials.appKey, credentials.appSecret, organization_url, refresh_token, self.cfg.api_version
+            credentials.appKey,
+            credentials.appSecret,
+            organization_url,
+            refresh_token,
+            self.cfg.api_version,
+            authority_url=authority_url,
         )
 
     def check_input_tables(self):
