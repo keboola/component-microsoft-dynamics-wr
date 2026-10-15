@@ -18,8 +18,8 @@ MANDATORYFIELDS_UPSERT = ["id", "data"]
 MANDATORYFIELDS_DELETE = ["id"]
 
 # Optional per stack override of the Microsoft identity platform authority,
-# set as data.image_parameters.oneDriveAuthorityUrl on the stack.
-KEY_IMAGE_AUTHORITY_URL = "oneDriveAuthorityUrl"
+# set as data.image_parameters.microsoftAuthorityUrl on the stack.
+KEY_IMAGE_AUTHORITY_URL = "microsoftAuthorityUrl"
 
 
 class Component(ComponentBase):

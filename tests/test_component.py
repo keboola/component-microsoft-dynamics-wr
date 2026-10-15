@@ -270,7 +270,7 @@ class TestEntitySetNameDerivation(unittest.TestCase):
 
 
 class TestBuildTokenUrl(unittest.TestCase):
-    """image_parameters.oneDriveAuthorityUrl support, see CFTL-843."""
+    """image_parameters.microsoftAuthorityUrl support, see CFTL-843."""
 
     def test_no_override_uses_common_endpoint(self):
         # Default behaviour must not change when the stack sets nothing.

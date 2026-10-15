@@ -46,7 +46,7 @@ class DynamicsClient(HttpClient):
         """Builds the Microsoft identity platform token endpoint.
 
         authority_url is the optional per stack override
-        (image_parameters.oneDriveAuthorityUrl), for example
+        (image_parameters.microsoftAuthorityUrl), for example
         https://login.microsoftonline.com/<tenant-id>. Microsoft rejects the shared
         /common endpoint for single tenant app registrations (AADSTS50194), so a
         stack with such a registration must call its own tenant instead.
